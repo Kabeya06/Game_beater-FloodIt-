@@ -61,6 +61,9 @@ def parse_rgb(c):
     return c
 
 # Convert array for plotting
+
+print(colors[0,0])
+
 plot_data = np.vectorize(parse_rgb, otypes=[object])(colors)
 
 # Create the visualization
@@ -76,6 +79,7 @@ ax.set_xticks([0.5, 1.5])
 ax.set_yticks([0.5, 1.5])
 ax.set_xticklabels(['0', '1'])
 ax.set_yticklabels(['0', '1'])
+ax.invert_yaxis()
 # ax.set_aspect('equal')
 
 plt.tight_layout()
