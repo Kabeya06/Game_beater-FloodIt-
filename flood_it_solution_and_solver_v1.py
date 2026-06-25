@@ -1,12 +1,3 @@
-#
-# from kivy.app import App
-# from kivy.core.window import Window
-# from kivy.uix.gridlayout import GridLayout
-# from kivy.uix.textinput import TextInput
-# from kivy.uix.spinner import Spinner
-# from kivy.uix.button import Button
-# from kivy.uix.label import Label
-
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.color import Color
@@ -134,17 +125,6 @@ while stop:
 
     del steps_dict
     steps_dict = next_steps.copy()
-
-    # print(list(steps_dict.keys())[-1])
-
-    # parsed = [[parse_rgb(c) for c in row] for row in new_board]
-
-    # full_path = os.path.join(folder_name, f"c-{color}.png")
-    # icon = create_frame(parsed)
-    #
-    # resized = cv2.resize(np.array(icon), (150,150), interpolation=cv2.INTER_AREA)
-    #
-    # cv2.imwrite(full_path, resized)
 
 print('\n')
 
