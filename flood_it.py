@@ -13,13 +13,20 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.options import Options
 
+from scipy.ndimage import label
 from pprint import pprint
+from PIL import Image
+from datetime import datetime
+
+import ast
+import cv2
 import json
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+import os
 
-columns = 10 #2 # 4 6 8 10
+columns = 2 # 6 8 10
 
 # Initialize Chrome Options
 chrome_options = Options()
@@ -30,59 +37,140 @@ chrome_options.add_experimental_option("detach", True)
 # Pass options into your driver initialization
 driver = webdriver.Chrome(options=chrome_options)
 
-driver.get(f'https://unixpapa.com/floodit/?sz={columns}&nc=6')# ("https://unixpapa.com/floodit/?sz=10&nc=6")
+driver.get(f'https://unixpapa.com/floodit/?sz={columns}&nc=8')# ("https://unixpapa.com/floodit/?sz=10&nc=6")
 
 def get_board():
 
     board_matrix = driver.find_element(By.XPATH, "//div[@id='game']").get_attribute("innerHTML").split('background-color')
     board_matrix = [string[:string.find('position')].strip(':').strip('; ') for string in board_matrix][1:]
-    return np.array(board_matrix).reshape(-1, columns).T
-
-
-# pprint(get_board())
+    return np.array(board_matrix).reshape(-1, columns).T#, axis=1)
 
 def click_colour():
     pass
 
-# Set up initial grid data dimensions (10x10)
+def current_posession(grid):
+    color = grid[0, 0]
 
-# data = get_board()
+    # Create a binary mask where the color matches
+    mask = (grid == color).astype(int)
 
-colors = get_board()
+    # Label connected components (islands)
+    labeled_array, num_features = label(mask)
 
-# np.array([['rgb(0, 187, 0)', 'red'],
-                   # ['cyan', 'rgb(255, 204, 102)']])
+    color_islands = []
+    for i in range(1, num_features + 1):
+        # Isolate each specific island
+        island_mask = (labeled_array == i).astype(int)
+        color_islands.append(island_mask)
 
-# Convert 'rgb(r, g, b)' strings to normalized (0-1) tuples for Matplotlib
-def parse_rgb(c):
-    if c.startswith('rgb'):
-        vals = eval(c.replace('rgb', ''))
-        return [v/255 for v in vals]
-    return c
+    return color_islands[0]
 
-# Convert array for plotting
 
-print(colors[0,0])
+def parse_rgb(color_str):
 
-plot_data = np.vectorize(parse_rgb, otypes=[object])(colors)
+        # Handle 'rgb(r, g, b)' strings
+    if color_str.startswith('rgb'):
+        # Strip 'rgb(' and ')' then split by comma
+        return tuple(map(int, color_str[4:-1].split(',')))
+    return color_str
 
-# Create the visualization
-fig, ax = plt.subplots(figsize=(10, 10))
-for (i, j), color in np.ndenumerate(plot_data):
-    print((i, j), color)
-    ax.add_patch(plt.Rectangle((j, i), 1, 1, color=color))
+def create_frame(matrix):
+    size = 10**2
+    img = Image.new("RGB", (columns, columns))
+    for y, row in enumerate(matrix):
+        for x, color in enumerate(row):
+            img.putpixel((x, y), Image.new("RGB", (1, 1), color).getpixel((0, 0)))
 
-# Formatting
-ax.set_xlim(0, columns)
-ax.set_ylim(0, columns)
-ax.set_xticks([0.5, 1.5])
-ax.set_yticks([0.5, 1.5])
-ax.set_xticklabels(['0', '1'])
-ax.set_yticklabels(['0', '1'])
-ax.invert_yaxis()
-# ax.set_aspect('equal')
+    return img
 
-plt.tight_layout()
+tree = {}
 
-plt.title("Matplotlib Color Grid")
-plt.show()
+
+
+# date, time = tuple(datetime.now().strftime("y%Y-m%m-d%d t%H-%M-%S").split())
+# folder_name = f"gifs/{date}/{time}"
+#
+# # 2. Create the folder if it doesn't exist
+# if not os.path.exists(folder_name):
+#     os.makedirs(folder_name)
+#     print(f"Created directory: {folder_name}")
+#
+# full_path = os.path.join(folder_name, 'start.png')
+# icon = create_frame(parsed)
+# resized = cv2.resize(np.array(icon), (150,150), interpolation=cv2.INTER_AREA)
+# cv2.imwrite(full_path, resized)
+
+def step(game_board = get_board()):
+
+    coords = np.argwhere(current_posession(game_board) == 1)
+    # print(coords)
+    parsed = [[parse_rgb(c) for c in row] for row in game_board]
+    palette = list(np.unique(game_board))
+
+    x = 0
+
+    for i in range(len(palette)):
+        if game_board[0, 0] in palette[i]:
+            x = i
+            break
+
+    palette.pop(x)
+
+    choices = {}
+
+    for color in palette:
+
+        new_board = game_board.copy()
+
+        for coord in coords:
+            new_board[tuple(coord)] = color
+        new_coords = np.argwhere(current_posession(new_board) == 1)
+        if len(new_coords) == int(columns*columns):
+            choices[color] = new_board
+            global stop
+            stop = False
+            return choices
+        elif len(coords) < len(new_coords):
+            choices[color] = new_board
+
+    return choices
+
+stop = True
+steps_dict = step()
+
+while stop:
+    next_steps = {}
+    for i in steps_dict:
+        change = step(steps_dict[i])
+        # print(stop??)
+        for x in change:
+            print(f'{i} {x}')
+            next_steps[f'{i} {x}'] = change[x]
+            if not stop: break
+        if not stop: break
+
+    del steps_dict
+    steps_dict = next_steps.copy()
+
+    # print(list(steps_dict.keys())[-1])
+
+    # parsed = [[parse_rgb(c) for c in row] for row in new_board]
+
+    # full_path = os.path.join(folder_name, f"c-{color}.png")
+    # icon = create_frame(parsed)
+    #
+    # resized = cv2.resize(np.array(icon), (150,150), interpolation=cv2.INTER_AREA)
+    #
+    # cv2.imwrite(full_path, resized)
+
+print('\n')
+
+for i in steps_dict.keys(): pprint(i)
+
+print('done')
+
+
+
+
+
+
